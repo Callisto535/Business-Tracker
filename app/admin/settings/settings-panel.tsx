@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import PwaInstallPrompt from "@/components/pwa-install-prompt";
 
 const RESET_PHRASE = "RESET";
 
@@ -71,6 +72,8 @@ export default function SettingsPanel() {
         </header>
 
         {message ? <p className="border border-black bg-neutral-100 px-3 py-2 text-sm" role="status">{message}</p> : null}
+
+        <PwaInstallPrompt />
 
         <Card className="border-2 border-red-700">
           <CardHeader className="border-b border-red-700 bg-red-50">

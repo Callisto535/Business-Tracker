@@ -14,6 +14,9 @@ create table if not exists public.sales (
   product_id uuid not null references public.products(id) on delete cascade,
   quantity integer not null check (quantity > 0),
   total_amount numeric(10,2) not null check (total_amount >= 0),
+  unit_cost_price numeric(10,2),
+  unit_selling_price numeric(10,2),
+  transaction_type text not null default 'sale' check (transaction_type in ('sale', 'adjustment')),
   created_at timestamptz not null default now()
 );
 
@@ -25,6 +28,17 @@ create table if not exists public.investments (
 );
 
 alter table public.investments add column if not exists created_at timestamptz not null default now();
+alter table public.sales add column if not exists unit_cost_price numeric(10,2);
+alter table public.sales add column if not exists unit_selling_price numeric(10,2);
+alter table public.sales add column if not exists transaction_type text not null default 'sale';
+
+update public.sales as sales
+set
+  unit_cost_price = products.cost_price,
+  unit_selling_price = products.selling_price
+from public.products as products
+where sales.product_id = products.id
+  and (sales.unit_cost_price is null or sales.unit_selling_price is null);
 
 alter table public.products enable row level security;
 alter table public.sales enable row level security;

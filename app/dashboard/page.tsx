@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, Pencil, Plus, ShieldAlert, Trash2 } from "lucide-react";
 
@@ -31,6 +31,7 @@ type SaleRow = {
   total_amount: number;
   created_at: string;
   products: { name: string } | { name: string }[] | null;
+  transaction_type?: "sale" | "adjustment";
 };
 
 type TodaySale = {
@@ -83,11 +84,11 @@ export default function DashboardPage() {
       quantity: Number(row.quantity),
       totalAmount,
       createdAt: row.created_at,
-      status: totalAmount === 0 ? "Potential missing stock" : "Sold",
+      status: row.transaction_type === "adjustment" ? "Potential missing stock" : "Sold",
     };
   };
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     if (!supabase) {
       setMessage("Supabase is not configured. Check your .env.local values.");
       setIsLoading(false);
@@ -106,7 +107,7 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false }),
       supabase
         .from("sales")
-        .select("id,quantity,total_amount,created_at,products(name)")
+        .select("id,quantity,total_amount,transaction_type,created_at,products(name)")
         .gte("created_at", todayStart.toISOString())
         .order("created_at", { ascending: false }),
     ]);
@@ -130,7 +131,7 @@ export default function DashboardPage() {
     setTodaySales(nextSales);
     setIsLoading(false);
     setMessage("Ready to track inventory and today's sales.");
-  };
+  }, [supabase]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -156,37 +157,33 @@ export default function DashboardPage() {
   }, [router, supabase]);
 
   useEffect(() => {
-    void loadDashboardData();
-  }, [supabase]);
+    const timer = window.setTimeout(() => { void loadDashboardData(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadDashboardData]);
 
   useEffect(() => {
-    if (products.length === 0) {
-      setSaleProductId("");
-      return;
-    }
-
-    if (!products.some((product) => product.id === saleProductId)) {
-      setSaleProductId(products[0].id);
-    }
+    const timer = window.setTimeout(() => {
+      if (products.length === 0) {
+        setSaleProductId("");
+      } else if (!products.some((product) => product.id === saleProductId)) {
+        setSaleProductId(products[0].id);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [products, saleProductId]);
 
   const selectedSaleProduct = products.find((product) => product.id === saleProductId);
   const maxSaleQuantity = selectedSaleProduct?.stock ?? 0;
 
   useEffect(() => {
-    if (maxSaleQuantity <= 0) {
-      setSaleQuantity(1);
-      return;
-    }
-
-    if (saleQuantity < 1) {
-      setSaleQuantity(1);
-      return;
-    }
-
-    if (saleQuantity > maxSaleQuantity) {
-      setSaleQuantity(maxSaleQuantity);
-    }
+    const timer = window.setTimeout(() => {
+      if (maxSaleQuantity <= 0 || saleQuantity < 1) {
+        setSaleQuantity(1);
+      } else if (saleQuantity > maxSaleQuantity) {
+        setSaleQuantity(maxSaleQuantity);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [maxSaleQuantity, saleQuantity]);
 
   const totalInventoryValue = products.reduce(
@@ -222,9 +219,12 @@ export default function DashboardPage() {
 
     if (
       !nextProduct.name ||
-      Number.isNaN(nextProduct.costPrice) ||
-      Number.isNaN(nextProduct.sellingPrice) ||
-      Number.isNaN(nextProduct.stock)
+      !Number.isFinite(nextProduct.costPrice) ||
+      !Number.isFinite(nextProduct.sellingPrice) ||
+      !Number.isInteger(nextProduct.stock) ||
+      nextProduct.costPrice < 0 ||
+      nextProduct.sellingPrice < 0 ||
+      nextProduct.stock < 0
     ) {
       setMessage("Please complete all fields with valid values.");
       return;
@@ -257,6 +257,9 @@ export default function DashboardPage() {
           product_id: editingId,
           quantity: decrease,
           total_amount: 0,
+          unit_cost_price: currentProduct.costPrice,
+          unit_selling_price: currentProduct.sellingPrice,
+          transaction_type: "adjustment",
         });
 
         if (missingError) {
@@ -338,7 +341,7 @@ export default function DashboardPage() {
       return;
     }
 
-    if (Number.isNaN(quantity) || quantity <= 0) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
       setMessage("Quantity must be greater than zero.");
       return;
     }
@@ -376,6 +379,9 @@ export default function DashboardPage() {
       product_id: selectedProduct.id,
       quantity,
       total_amount: totalAmount,
+      unit_cost_price: selectedProduct.costPrice,
+      unit_selling_price: selectedProduct.sellingPrice,
+      transaction_type: "sale",
     });
 
     if (saleError) {
@@ -609,7 +615,7 @@ export default function DashboardPage() {
 
         <Card className="border-2 border-black">
           <CardHeader className="border-b border-black">
-            <CardTitle className="text-2xl tracking-[-0.06em]">Today's sales tracking</CardTitle>
+            <CardTitle className="text-2xl tracking-[-0.06em]">Today&apos;s sales tracking</CardTitle>
             <CardDescription>
               Every sold item is listed here with quantity, amount, and time.
               Zero-amount entries are flagged for potential missing stock.
@@ -684,4 +690,3 @@ export default function DashboardPage() {
     </main>
   );
 }
-

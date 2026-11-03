@@ -15,21 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
-const DEMO_EMAIL = "admin@demo.com";
-const DEMO_PASSWORD = "demo123";
-const RAY_EMAIL = "ray@gmail.com";
-const RAY_PASSWORD = "ray123";
 const ADMIN_EMAIL = "admin@demo.com";
 const ADMIN_KEYWORD = "rayy";
 
-function setSignedInCookie(email: string) {
-  document.cookie = `business-tracker-demo-user=${encodeURIComponent(email)}; path=/; max-age=86400`;
-}
-
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState(DEMO_EMAIL);
-  const [password, setPassword] = useState(DEMO_PASSWORD);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,31 +34,6 @@ export default function LoginPage() {
     event.preventDefault();
     setIsSubmitting(true);
     setError("");
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const hasSupabaseConfig =
-      !!supabaseUrl &&
-      !!supabaseAnonKey &&
-      !supabaseUrl.includes("your-project-id");
-
-    if (!hasSupabaseConfig) {
-      const normalizedEmail = email.trim().toLowerCase();
-      const isValidDemoLogin =
-        (normalizedEmail === DEMO_EMAIL && password === DEMO_PASSWORD) ||
-        (normalizedEmail === RAY_EMAIL && password === RAY_PASSWORD);
-
-      if (isValidDemoLogin) {
-        setSignedInCookie(normalizedEmail);
-        router.push(isAdminUser(normalizedEmail) ? "/admin/profit" : "/dashboard");
-        setIsSubmitting(false);
-        return;
-      }
-
-      setError("Use admin@demo.com / demo123 or ray@gmail.com / ray123 in local mode.");
-      setIsSubmitting(false);
-      return;
-    }
 
     try {
       const supabase = createClient();
@@ -88,7 +55,6 @@ export default function LoginPage() {
         return;
       }
 
-      setSignedInCookie(email);
       router.push(isAdminUser(email) ? "/admin/profit" : "/dashboard");
     } catch {
       setError("Unable to contact Supabase. Check your environment variables.");
@@ -152,11 +118,6 @@ export default function LoginPage() {
                   {error}
                 </p>
               ) : null}
-
-              <div className="flex items-center justify-between gap-3 pt-2 text-xs uppercase tracking-[0.18em] text-neutral-600">
-                <span>Local demo only</span>
-                <span>admin@demo.com / demo123</span>
-              </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Signing in..." : "Sign in"}

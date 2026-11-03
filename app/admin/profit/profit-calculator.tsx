@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 
 type Investor = { id: string; partner_name: string; amount_invested: number; created_at?: string };
-type SaleRow = { id: string; quantity: number; total_amount: number; created_at: string; products: { name: string; cost_price: number } | { name: string; cost_price: number }[] | null };
+type SaleRow = { id: string; quantity: number; total_amount: number; unit_cost_price: number | null; transaction_type: "sale" | "adjustment"; created_at: string; products: { name: string; cost_price: number } | { name: string; cost_price: number }[] | null };
 type ProductRow = { id: string; name: string; selling_price: number; created_at: string };
 type HistoryItem = { id: string; category: "Inventory" | "Money" | "Investors"; title: string; detail: string; createdAt: string };
 type FormState = { name: string; amount: string };
@@ -48,8 +48,8 @@ export default function ProfitCalculator() {
 
     const [investmentResult, salesResult, productResult] = await Promise.all([
       supabase.from("investments").select("id,partner_name,amount_invested").order("partner_name"),
-      supabase.from("sales").select("id,quantity,total_amount,created_at,products(name,cost_price)"),
-      supabase.from("products").select("id,name,selling_price,created_at").order("created_at", { ascending: false }),
+      supabase.from("sales").select("id,quantity,total_amount,unit_cost_price,transaction_type,created_at,products(name,cost_price)"),
+      supabase.from("products").select("id,name,selling_price,cost_price,created_at").order("created_at", { ascending: false }),
     ]);
 
     if (investmentResult.error) {
@@ -69,14 +69,16 @@ export default function ProfitCalculator() {
     const nextInvestors = (investmentResult.data ?? []) as Investor[];
     const products = (productResult.data ?? []) as ProductRow[];
     setInvestors(nextInvestors);
-    setRevenue(sales.reduce((sum, sale) => sum + Number(sale.total_amount), 0));
-    setCogs(sales.reduce((sum, sale) => {
+    const saleTransactions = sales.filter((sale) => sale.transaction_type !== "adjustment");
+    setRevenue(saleTransactions.reduce((sum, sale) => sum + Number(sale.total_amount), 0));
+    setCogs(saleTransactions.reduce((sum, sale) => {
       const product = Array.isArray(sale.products) ? sale.products[0] : sale.products;
-      return sum + Number(sale.quantity) * Number(product?.cost_price ?? 0);
+      const unitCost = sale.unit_cost_price ?? product?.cost_price ?? 0;
+      return sum + Number(sale.quantity) * Number(unitCost);
     }, 0));
     setHistory([
       ...products.map((product) => ({ id: `product-${product.id}`, category: "Inventory" as const, title: `Added ${product.name}`, detail: `Selling price ${money(Number(product.selling_price))}`, createdAt: product.created_at })),
-      ...sales.map((sale) => { const product = Array.isArray(sale.products) ? sale.products[0] : sale.products; return { id: `sale-${sale.id}`, category: "Money" as const, title: `Sale: ${product?.name ?? "Unknown item"}`, detail: `${sale.quantity} unit${sale.quantity === 1 ? "" : "s"} · ${money(Number(sale.total_amount))}`, createdAt: sale.created_at }; }),
+      ...sales.map((sale) => { const product = Array.isArray(sale.products) ? sale.products[0] : sale.products; const isAdjustment = sale.transaction_type === "adjustment"; return { id: `sale-${sale.id}`, category: isAdjustment ? "Inventory" as const : "Money" as const, title: isAdjustment ? `Removed stock: ${product?.name ?? "Unknown item"}` : `Sale: ${product?.name ?? "Unknown item"}`, detail: isAdjustment ? `${sale.quantity} unit${sale.quantity === 1 ? "" : "s"} removed` : `${sale.quantity} unit${sale.quantity === 1 ? "" : "s"} · ${money(Number(sale.total_amount))}`, createdAt: sale.created_at }; }),
       ...nextInvestors.map((investor) => ({ id: `investor-${investor.id}`, category: "Investors" as const, title: `Added ${investor.partner_name}`, detail: `Investment ${money(Number(investor.amount_invested))}`, createdAt: investor.created_at ?? new Date().toISOString() })),
     ].sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()));
     setMessage("Live sales and investor data loaded.");
