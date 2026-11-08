@@ -59,6 +59,7 @@ export default function DashboardPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saleProductId, setSaleProductId] = useState("");
   const [saleQuantity, setSaleQuantity] = useState(1);
+  const [saleUnitPrice, setSaleUnitPrice] = useState("");
   const [message, setMessage] = useState("Loading data from Supabase...");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -335,6 +336,7 @@ export default function DashboardPage() {
 
     const selectedProduct = products.find((product) => product.id === saleProductId);
     const quantity = Number(saleQuantity);
+    const unitSellingPrice = Number(saleUnitPrice || selectedProduct?.sellingPrice);
 
     if (!selectedProduct) {
       setMessage("Please pick a product before logging a sale.");
@@ -348,6 +350,11 @@ export default function DashboardPage() {
 
     if (quantity > selectedProduct.stock) {
       setMessage(`Not enough stock for ${selectedProduct.name}.`);
+      return;
+    }
+
+    if (!Number.isFinite(unitSellingPrice) || unitSellingPrice < 0) {
+      setMessage("Sold price must be a valid non-negative amount.");
       return;
     }
 
@@ -374,13 +381,13 @@ export default function DashboardPage() {
       return;
     }
 
-    const totalAmount = selectedProduct.sellingPrice * quantity;
+    const totalAmount = unitSellingPrice * quantity;
     const { error: saleError } = await supabase.from("sales").insert({
       product_id: selectedProduct.id,
       quantity,
       total_amount: totalAmount,
       unit_cost_price: selectedProduct.costPrice,
-      unit_selling_price: selectedProduct.sellingPrice,
+      unit_selling_price: unitSellingPrice,
       transaction_type: "sale",
     });
 
@@ -396,6 +403,7 @@ export default function DashboardPage() {
     }
 
     setSaleQuantity(1);
+    setSaleUnitPrice("");
     setMessage(`Recorded sale: ${quantity} ${selectedProduct.name} sold.`);
     await loadDashboardData();
     setIsSaving(false);
@@ -518,7 +526,7 @@ export default function DashboardPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Cost</label>
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Buying price</label>
                       <Input
                         type="number"
                         min="0"
@@ -530,7 +538,7 @@ export default function DashboardPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Selling</label>
+                      <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Starting price</label>
                       <Input
                         type="number"
                         min="0"
@@ -566,6 +574,7 @@ export default function DashboardPage() {
             <Card className="border-2 border-black">
               <CardHeader className="border-b border-black">
                 <CardTitle className="text-2xl tracking-[-0.06em]">Quick sale</CardTitle>
+                <CardDescription>Choose a quantity and set the exact price for this customer.</CardDescription>
               </CardHeader>
               <CardContent className="pt-5">
                 <form onSubmit={handleSale} className="space-y-4">
@@ -573,7 +582,13 @@ export default function DashboardPage() {
                     <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Product</label>
                     <select
                       value={saleProductId}
-                      onChange={(event) => { setSaleProductId(event.target.value); setSaleQuantity(1); }}
+                      onChange={(event) => {
+                        const nextProductId = event.target.value;
+                        const nextProduct = products.find((product) => product.id === nextProductId);
+                        setSaleProductId(nextProductId);
+                        setSaleQuantity(1);
+                        setSaleUnitPrice(nextProduct ? String(nextProduct.sellingPrice) : "");
+                      }}
                       className="flex h-11 w-full border border-black bg-white px-3 py-2 text-sm text-black outline-none focus:ring-2 focus:ring-black"
                       disabled={products.length === 0 || isSaving || isLoading}
                     >
@@ -601,6 +616,30 @@ export default function DashboardPage() {
                     />
                     <p className="text-xs text-neutral-600">
                       Remaining stock: {maxSaleQuantity}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">
+                      Sold price per item
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={saleUnitPrice || (selectedSaleProduct ? String(selectedSaleProduct.sellingPrice) : "")}
+                      onChange={(event) => setSaleUnitPrice(event.target.value)}
+                      disabled={products.length === 0 || isSaving || isLoading}
+                    />
+                    <p className="text-xs text-neutral-600">
+                      Starting price: ${selectedSaleProduct?.sellingPrice.toFixed(2) ?? "0.00"}. You can change this for each customer.
+                    </p>
+                  </div>
+
+                  <div className="border border-black bg-neutral-100 p-3">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Sale total</p>
+                    <p className="mt-1 text-2xl font-semibold tracking-[-0.06em]">
+                      ${(saleQuantity * Number(saleUnitPrice || selectedSaleProduct?.sellingPrice || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
 
