@@ -19,7 +19,7 @@ export default function SettingsPanel() {
   const [isResetting, setIsResetting] = useState(false);
 
   const resetData = async () => {
-    if (!window.confirm("This will permanently delete every product, sale, and investor. Continue?")) {
+    if (!window.confirm("This will permanently delete every product, sale, investor, and reinvestment. Continue?")) {
       return;
     }
 
@@ -53,7 +53,14 @@ export default function SettingsPanel() {
       return;
     }
 
-    setMessage("All products, sales, and investors were permanently deleted.");
+    const reinvestmentResult = await supabase.from("reinvestments").delete().not("id", "is", null);
+    if (reinvestmentResult.error) {
+      setMessage(`Unable to delete reinvestments: ${reinvestmentResult.error.message}`);
+      setIsResetting(false);
+      return;
+    }
+
+    setMessage("All products, sales, investors, and reinvestments were permanently deleted.");
     setConfirmation("");
     setIsResetting(false);
   };
@@ -88,7 +95,7 @@ export default function SettingsPanel() {
           <CardContent className="space-y-5 pt-5">
             <div>
               <h2 className="font-semibold">Delete all business data</h2>
-              <p className="mt-1 text-sm text-neutral-600">Removes every product, sale, and investor from the current workspace.</p>
+              <p className="mt-1 text-sm text-neutral-600">Removes every product, sale, investor, and reinvestment from the current workspace.</p>
             </div>
             <div className="max-w-md space-y-2">
               <label htmlFor="reset-confirmation" className="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Type RESET to unlock</label>

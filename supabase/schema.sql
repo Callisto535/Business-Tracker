@@ -27,6 +27,15 @@ create table if not exists public.investments (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.reinvestments (
+  id uuid primary key default gen_random_uuid(),
+  item_name text not null,
+  amount numeric(10,2) not null check (amount > 0),
+  quantity integer not null default 1 check (quantity > 0),
+  notes text,
+  created_at timestamptz not null default now()
+);
+
 alter table public.investments add column if not exists created_at timestamptz not null default now();
 alter table public.sales add column if not exists unit_cost_price numeric(10,2);
 alter table public.sales add column if not exists unit_selling_price numeric(10,2);
@@ -43,6 +52,7 @@ where sales.product_id = products.id
 alter table public.products enable row level security;
 alter table public.sales enable row level security;
 alter table public.investments enable row level security;
+alter table public.reinvestments enable row level security;
 
 create policy "Authenticated users can view products"
 on public.products for select
@@ -104,5 +114,26 @@ with check (true);
 
 create policy "Authenticated users can delete investments"
 on public.investments for delete
+to authenticated
+using (true);
+
+create policy "Authenticated users can view reinvestments"
+on public.reinvestments for select
+to authenticated
+using (true);
+
+create policy "Authenticated users can insert reinvestments"
+on public.reinvestments for insert
+to authenticated
+with check (true);
+
+create policy "Authenticated users can update reinvestments"
+on public.reinvestments for update
+to authenticated
+using (true)
+with check (true);
+
+create policy "Authenticated users can delete reinvestments"
+on public.reinvestments for delete
 to authenticated
 using (true);
