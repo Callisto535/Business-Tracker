@@ -54,6 +54,23 @@ alter table public.sales enable row level security;
 alter table public.investments enable row level security;
 alter table public.reinvestments enable row level security;
 
+drop policy if exists "Authenticated users can view products" on public.products;
+drop policy if exists "Authenticated users can insert products" on public.products;
+drop policy if exists "Authenticated users can update products" on public.products;
+drop policy if exists "Authenticated users can delete products" on public.products;
+drop policy if exists "Authenticated users can view sales" on public.sales;
+drop policy if exists "Authenticated users can insert sales" on public.sales;
+drop policy if exists "Authenticated users can update sales" on public.sales;
+drop policy if exists "Authenticated users can delete sales" on public.sales;
+drop policy if exists "Authenticated users can view investments" on public.investments;
+drop policy if exists "Authenticated users can insert investments" on public.investments;
+drop policy if exists "Authenticated users can update investments" on public.investments;
+drop policy if exists "Authenticated users can delete investments" on public.investments;
+drop policy if exists "Authenticated users can view reinvestments" on public.reinvestments;
+drop policy if exists "Authenticated users can insert reinvestments" on public.reinvestments;
+drop policy if exists "Authenticated users can update reinvestments" on public.reinvestments;
+drop policy if exists "Authenticated users can delete reinvestments" on public.reinvestments;
+
 create policy "Authenticated users can view products"
 on public.products for select
 to authenticated
